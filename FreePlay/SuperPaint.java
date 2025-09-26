@@ -420,7 +420,7 @@ static class RoundButton extends JButton {
         g2.fillOval(1,1,w-2,h-2);
 
         if (hover) {
-            g2.setStroke(new BasicStroke(2f));
+            g2.setStroke(new BasicStroke(1f));
             g2.setColor(new Color(40,120,255));
             g2.drawOval(2,2,w-4,h-4);
         }
@@ -487,8 +487,9 @@ static class ColorButton extends JButton {
 
     
 
-    // runder Icon-Button mit Hover-Ring (gilt für alle runden Buttons, inkl. Mode-Panel)
-    static class Roundheadbutton extends JButton {
+    // Icon BUtton für Offene leiste
+
+     static class Roundheadbutton extends JButton {
     private boolean hover = false;
 
     Roundheadbutton(String svgPath, int size) {
@@ -545,7 +546,7 @@ static class ColorButton extends JButton {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             Shape rr = new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), arc, arc);
-            g2.setColor(new Color(253,253,253,240)); // halbtransparente
+            g2.setColor(new Color( 50,255,255,60)); // halbtransparente
             g2.fill(rr);
             g2.dispose();
             super.paintComponent(g);
@@ -748,7 +749,7 @@ private JPanel buildColorPanel() {
     private JPanel buildModePanel() {
         RoundedPanel p = new RoundedPanel(26);
         p.setLayout(new FlowLayout(FlowLayout.CENTER, 10, 10));
-         RoundButton penBtn   = new RoundButton("icons/pen.svg", 26);
+        RoundButton penBtn   = new RoundButton("icons/pen.svg", 26);
         RoundButton lineBtn  = new RoundButton("icons/line.svg", 26);
         RoundButton rectBtn  = new RoundButton("icons/rect.svg", 26);
         RoundButton ovalBtn  = new RoundButton("icons/kreis.svg", 26);
