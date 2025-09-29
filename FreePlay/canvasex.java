@@ -1,5 +1,6 @@
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicSliderUI;
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
@@ -13,12 +14,17 @@ import org.apache.batik.transcoder.image.PNGTranscoder;
 import org.apache.batik.transcoder.TranscoderInput;
 import org.apache.batik.transcoder.TranscoderOutput;
 
+/**
+ * canvasex — enhanced: serialisation + autosave + Ctrl+S
+ */
 public class canvasex extends JFrame {
 
     // ====== Canvas / Shapes
     interface DrawingShape { void draw(Graphics2D g); }
 
-    static class LineShape implements DrawingShape {
+    // Make shapes Serializable so we can persist them
+    static class LineShape implements DrawingShape, Serializable {
+        private static final long serialVersionUID = 1L;
         Point a, b; Color color; int size;
         LineShape(Point a, Point b, Color c, int s) { this.a=a; this.b=b; this.color=c; this.size=s; }
         @Override public void draw(Graphics2D g) {
@@ -29,7 +35,8 @@ public class canvasex extends JFrame {
         }
     }
 
-    static class RectShape implements DrawingShape {
+    static class RectShape implements DrawingShape, Serializable {
+        private static final long serialVersionUID = 1L;
         Point a, b; Color color; int size;
         RectShape(Point a, Point b, Color c, int s) { this.a=a; this.b=b; this.color=c; this.size=s; }
         @Override public void draw(Graphics2D g) {
@@ -40,7 +47,8 @@ public class canvasex extends JFrame {
         }
     }
 
-    static class OvalShape implements DrawingShape {
+    static class OvalShape implements DrawingShape, Serializable {
+        private static final long serialVersionUID = 1L;
         Point a, b; Color color; int size;
         OvalShape(Point a, Point b, Color c, int s) { this.a=a; this.b=b; this.color=c; this.size=s; }
         @Override public void draw(Graphics2D g) {
@@ -51,7 +59,8 @@ public class canvasex extends JFrame {
         }
     }
 
-    static class TextShape implements DrawingShape {
+    static class TextShape implements DrawingShape, Serializable {
+        private static final long serialVersionUID = 1L;
         String text; Point pos; Color color; Font font;
         TextShape(String t, Point p, Color c, Font f) { this.text=t; this.pos=p; this.color=c; this.font=f; }
         @Override public void draw(Graphics2D g) {
@@ -65,13 +74,11 @@ public class canvasex extends JFrame {
     // ===== soft shadow helper (simple, high-quality look without heavy blur ops)
     private static void paintSoftShadow(Graphics2D g2, Shape s, int blurRadius, float baseAlpha) {
         if (blurRadius <= 0) return;
-        Rectangle bounds = s.getBounds();
         // Save transform & composite
         AffineTransform oldT = g2.getTransform();
         Composite oldC = g2.getComposite();
 
-        // We'll render several stacked translucent fills slightly offset to simulate blur
-        // It's cheap and looks smooth for UI shadows.
+        // stacked translucent fills slightly offset to simulate blur
         for (int i = blurRadius; i >= 1; i--) {
             float a = baseAlpha * (i / (float)(blurRadius + 1)) * 0.9f;
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0f, Math.min(1f, a))));
@@ -81,6 +88,33 @@ public class canvasex extends JFrame {
             g2.setTransform(oldT);
         }
         g2.setComposite(oldC);
+    }
+
+    // ===== ProjectData for persistence
+    static class ProjectData implements Serializable {
+        private static final long serialVersionUID = 1L;
+        List<DrawingShape> shapes;
+        double scale;
+        double offX, offY;
+        int penSize;
+        Color drawColor;
+        Color textColor;
+        int fontSize;
+        String fontFamily;
+        int fontStyle;
+
+        ProjectData(List<DrawingShape> shapes, double scale, double offX, double offY,
+                    int penSize, Color drawColor, Color textColor,
+                    int fontSize, String fontFamily, int fontStyle) {
+            this.shapes = new ArrayList<>(shapes);
+            this.scale = scale; this.offX = offX; this.offY = offY;
+            this.penSize = penSize;
+            this.drawColor = drawColor;
+            this.textColor = textColor;
+            this.fontSize = fontSize;
+            this.fontFamily = fontFamily;
+            this.fontStyle = fontStyle;
+        }
     }
 
     static class CanvasView extends JComponent {
@@ -116,10 +150,12 @@ public class canvasex extends JFrame {
         StringBuilder textBuffer = new StringBuilder();
 
         CanvasView() {
+            setOpaque(true);
+            setBackground(Color.WHITE);
             setFocusable(true);
 
             addMouseWheelListener(this::onWheel);
-
+            
             addMouseListener(new MouseAdapter() {
                 @Override public void mousePressed(MouseEvent e) {
                     requestFocusInWindow();
@@ -223,6 +259,27 @@ public class canvasex extends JFrame {
             offY = p.y - (p.y - offY) * (scale / prev);
             repaint();
         }
+        public void saveImage(File file) {
+    BufferedImage image = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+    Graphics2D g2 = image.createGraphics();
+    paint(g2);
+    g2.dispose();
+    try {
+        ImageIO.write(image, "png", file);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+
+public void loadImage(File file) {
+    try {
+        BufferedImage image = ImageIO.read(file);
+        Graphics g = getGraphics();
+        g.drawImage(image, 0, 0, this);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
 
         // Zeichnen / Commit
         void commitShape(Point a, Point b) {
@@ -237,8 +294,12 @@ public class canvasex extends JFrame {
             Font f = new Font(fontFamily, fontStyle, fontSize);
             shapes.add(new TextShape(text, pos, textColor, f));
         }
-
         @Override protected void paintComponent(Graphics g) {
+            if (isOpaque()) {
+                g.setColor(getBackground());
+                g.fillRect(0, 0, getWidth(), getHeight());
+            }
+
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -292,6 +353,10 @@ public class canvasex extends JFrame {
     private JComponent visibleAnchor = null;
     private int visibleW = 0, visibleH = 0;
 
+    // autosave file + timer
+    private final File autosaveFile = new File(System.getProperty("user.home"), ".canvas_autosave.cvs");
+    private Timer autosaveTimer;
+
     public canvasex() {
         super("Freeplay"); // App-Name
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -317,29 +382,38 @@ public class canvasex extends JFrame {
         // Top-Bar: links "Neu", zentriert 3 runde Buttons
         topBar = new JPanel(new BorderLayout());
         topBar.setBorder(BorderFactory.createEmptyBorder(8, 12, 4, 12));
-        topBar.setBackground(new Color(30, 30, 30)); // dunkel
+        topBar.setBackground(new Color(255,255,255)); //
         topStack.add(topBar, BorderLayout.NORTH);
 
-        // Ganz links: Reset
+        // Ganz links: Reset + Save/Load
         JButton clearBtn = new JButton("New");
         clearBtn.addActionListener(e -> {
             cv.shapes.clear();
             cv.repaint();
             cv.requestFocusInWindow();
         });
-        JPanel leftBox = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+
+        JButton saveBtn = new JButton("Save");
+        saveBtn.addActionListener(e -> saveProjectToFile());
+
+        JButton loadBtn = new JButton("Load");
+        loadBtn.addActionListener(e -> loadProjectFromFile());
+
+        JPanel leftBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 1, 0));
         leftBox.setOpaque(false);
         leftBox.add(clearBtn);
-        topBar.add(leftBox, BorderLayout.WEST);
+        leftBox.add(saveBtn);
+        leftBox.add(loadBtn);
+        topBar.add(leftBox, BorderLayout.EAST);
 
         // Mitte: 3 runde Buttons (ecke /pencil / scale)
         JPanel centerRound = new JPanel();
         centerRound.setOpaque(false);
         centerRound.setLayout(new FlowLayout(FlowLayout.CENTER, 18, 0));
 
-        btnModes = new Roundheadbutton("icons/ecke.svg", 20);
-        btnColor = new Roundheadbutton("icons/pencil.svg", 20);
-        btnText  = new Roundheadbutton("icons/scale.svg", 20);
+        btnModes = new Roundheadbutton("icons/ecke.svg", 25);
+        btnColor = new Roundheadbutton("icons/pencil.svg", 25);
+        btnText  = new Roundheadbutton("icons/scale.svg", 24);
 
         centerRound.add(btnModes);
         centerRound.add(btnColor);
@@ -374,8 +448,8 @@ public class canvasex extends JFrame {
         });
 
         // Button-Logik → Overlay direkt unter dem jeweiligen Button
-        btnModes.addActionListener(e -> toggleDropdownOverlay(modePanel, btnModes, 330, 120));
-        btnColor.addActionListener(e -> toggleDropdownOverlay(colorPanel, btnColor, 320,140));
+        btnModes.addActionListener(e -> toggleDropdownOverlay(modePanel, btnModes, 180, 140));
+        btnColor.addActionListener(e -> toggleDropdownOverlay(colorPanel, btnColor, 320,100));
         btnText.addActionListener(e -> toggleDropdownOverlay(textPanel,  btnText,  360, 240));
 
         // ===== Canvas als Center =====
@@ -386,6 +460,30 @@ public class canvasex extends JFrame {
         addComponentListener(new ComponentAdapter() {
             @Override public void componentResized(ComponentEvent e) {
                 reanchorVisibleDropdowns();
+            }
+        });
+
+        // ===== Key binding: Ctrl+S -> save dialog
+        KeyStroke ks = KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK);
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(ks, "saveProject");
+        getRootPane().getActionMap().put("saveProject", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) {
+                saveProjectToFile();
+            }
+        });
+
+        // ===== Autosave Timer (every 30s) -> silent save to autosaveFile
+        autosaveTimer = new Timer(30_000, e -> {
+            saveProjectSilent(autosaveFile);
+        });
+        autosaveTimer.setRepeats(true);
+        autosaveTimer.start();
+
+        // Save once on exit (best-effort)
+        addWindowListener(new WindowAdapter() {
+            @Override public void windowClosing(WindowEvent e) {
+                saveProjectSilent(autosaveFile);
+                super.windowClosing(e);
             }
         });
     }
@@ -409,7 +507,6 @@ public class canvasex extends JFrame {
             return new ImageIcon(img);
         } catch (Exception e) {
             // fallback: return empty icon to avoid NPE
-            // e.printStackTrace();
             return new ImageIcon(new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB));
         }
     }
@@ -440,8 +537,8 @@ public class canvasex extends JFrame {
             int w = getWidth(), h = getHeight();
             Shape circle = new Ellipse2D.Double(2,2,w-4,h-4);
 
-            paintSoftShadow(g2, circle, 8, 0.20f);
-            g2.setColor(new Color(30,30,30,220)); // dunkel Hintergrund für Buttons
+            paintSoftShadow(g2, circle, 3, 0.20f);
+            g2.setColor(new Color(255,255,255,220));
             g2.fill(circle);
 
             if (hover) {
@@ -529,12 +626,10 @@ public class canvasex extends JFrame {
 
             Shape rr = new RoundRectangle2D.Double(6, 6, Math.max(getWidth()-12,0), Math.max(getHeight()-12,0), arc, arc);
 
-            paintSoftShadow(g2, rr, 14, 0.20f);
-            // slightly translucent dark background (since you asked dark)
-            g2.setColor(new Color(18,18,20, 230));
+            paintSoftShadow(g2, rr, 10, 0.20f);
+            g2.setColor(new Color(255,255,255, 230));
             g2.fill(rr);
 
-            // subtle inner border
             g2.setColor(new Color(255,255,255,10));
             g2.setStroke(new BasicStroke(1f));
             g2.draw(rr);
@@ -549,7 +644,6 @@ public class canvasex extends JFrame {
         ShadowSlider(int min, int max, int val) {
             super(min, max, val);
             setOpaque(false);
-            // Provide a BasicSliderUI that doesn't draw default thumb/track so we can custom paint
             setUI(new BasicSliderUI(this) {
                 @Override public void paintTrack(Graphics g) { /* skip default */ }
                 @Override public void paintThumb(Graphics g) { /* skip default */ }
@@ -568,12 +662,10 @@ public class canvasex extends JFrame {
             int right = w - 10;
             int trackY = h/2 - trackH/2;
 
-            // track background
             RoundRectangle2D track = new RoundRectangle2D.Double(left, trackY, right-left, trackH, trackH, trackH);
             g2.setColor(new Color(90,90,95,180));
             g2.fill(track);
 
-            // filled portion
             double range = getMaximum() - getMinimum();
             double pos = (getValue() - getMinimum()) / (range <= 0 ? 1.0 : range);
             int filledW = left + (int)((right-left) * pos);
@@ -581,15 +673,12 @@ public class canvasex extends JFrame {
             g2.setColor(new Color(60,120,255,200));
             g2.fill(filled);
 
-            // thumb position
             int thumbX = filledW;
             int thumbY = h / 2;
             Ellipse2D thumb = new Ellipse2D.Double(thumbX - 10, thumbY - 10, 20, 20);
 
-            // shadow
-            paintSoftShadow(g2, thumb, 8, 0.25f);
+            paintSoftShadow(g2, thumb, 6, 0.25f);
 
-            // thumb
             g2.setColor(Color.WHITE);
             g2.fill(thumb);
             g2.setColor(new Color(150,150,150,200));
@@ -823,6 +912,67 @@ public class canvasex extends JFrame {
 
         p.setVisible(false);
         return p;
+    }
+
+    // ===== Persistence: save/load project =====
+
+    // Save with dialog (Ctrl+S mapped to this)
+    private void saveProjectToFile() {
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Save project");
+        fc.setSelectedFile(new File("project.cvs"));
+        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File file = fc.getSelectedFile();
+            if (!file.getName().toLowerCase().endsWith(".cvs")) file = new File(file.getParentFile(), file.getName() + ".cvs");
+            saveProjectSilent(file);
+            JOptionPane.showMessageDialog(this, "Projekt gespeichert:\n" + file.getAbsolutePath());
+        }
+    }
+
+    // Silent save (no dialogs) - used by autosave and on-exit
+    private void saveProjectSilent(File file) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
+            ProjectData pd = new ProjectData(cv.shapes, cv.scale, cv.offX, cv.offY,
+                    cv.penSize, cv.color, cv.textColor,
+                    cv.fontSize, cv.fontFamily, cv.fontStyle);
+            oos.writeObject(pd);
+            oos.flush();
+            // no dialog
+        } catch (Exception ex) {
+            // Log to stderr but don't spam user on autosave
+            System.err.println("Error saving project to " + file.getAbsolutePath() + ": " + ex.getMessage());
+            // optionally show dialog if user explicitly saved via dialog (handled in saveProjectToFile)
+        }
+    }
+
+    private void loadProjectFromFile() {
+        JFileChooser fc = new JFileChooser();
+        fc.setDialogTitle("Load project");
+        if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File file = fc.getSelectedFile();
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+                Object o = ois.readObject();
+                if (o instanceof ProjectData pd) {
+                    cv.shapes.clear();
+                    cv.shapes.addAll(pd.shapes);
+                    cv.scale = pd.scale;
+                    cv.offX = pd.offX; cv.offY = pd.offY;
+                    cv.penSize = pd.penSize;
+                    cv.color = pd.drawColor;
+                    cv.textColor = pd.textColor;
+                    cv.fontSize = pd.fontSize;
+                    cv.fontFamily = pd.fontFamily;
+                    cv.fontStyle = pd.fontStyle;
+                    cv.repaint();
+                    JOptionPane.showMessageDialog(this, "Projekt geladen:\n" + file.getAbsolutePath());
+                } else {
+                    JOptionPane.showMessageDialog(this, "Ungültige Datei.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Fehler beim Laden: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
     // ===== main =====
