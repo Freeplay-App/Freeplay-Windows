@@ -377,13 +377,20 @@ public void loadImage(File file) {
 
         // ===== Top-Bereich (Stack) =====
         topStack = new JPanel(new BorderLayout());
-        add(topStack, BorderLayout.NORTH);
+        //add(topStack, BorderLayout.NORTH);
+        topStack.setOpaque(false);
+        topStack.setBackground(new Color(255,255,255,0));
+        topStack.setBounds(0, 0, getWidth(), 80); // Höhe ggf. anpassen
+        //layeredPane.add(topStack, JLayeredPane.PALETTE_LAYER);
 
         // Top-Bar: links "Neu", zentriert 3 runde Buttons
         topBar = new JPanel(new BorderLayout());
-        topBar.setBorder(BorderFactory.createEmptyBorder(8, 12, 4, 12));
-        topBar.setBackground(new Color(255,255,255)); //
-        topStack.add(topBar, BorderLayout.NORTH);
+        topBar.setOpaque(false);
+        
+
+        topBar.setBorder(BorderFactory.createEmptyBorder(8, 12, 3, 12));
+        topBar.setBackground(new Color(255,255,255,255)); //rgb a is broken fix it :(
+        topStack.add(topBar, BorderLayout.NORTH);//shouldnt center mid buttons
 
         // Ganz links: Reset + Save/Load
         JButton clearBtn = new JButton("New");
@@ -399,21 +406,43 @@ public void loadImage(File file) {
         JButton loadBtn = new JButton("Load");
         loadBtn.addActionListener(e -> loadProjectFromFile());
 
-        JPanel leftBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 1, 0));
+        JPanel leftBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 0));
+        JPanel rightBoxup = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 0));
+        JPanel rightBoxdown = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 0));
+        
         leftBox.setOpaque(false);
         leftBox.add(clearBtn);
-        leftBox.add(saveBtn);
-        leftBox.add(loadBtn);
+        rightBoxdown.setOpaque(false);
+        rightBoxup.setOpaque(false);
+        rightBoxup.add(saveBtn);
+        rightBoxdown.add(loadBtn);
+        
         topBar.add(leftBox, BorderLayout.EAST);
+        topBar.add(rightBoxup, BorderLayout.WEST);
+        topBar.add(rightBoxdown);         // ...nach der Erstellung von rightBoxup und rightBoxdown...
+        
+        // Vertikaler Container für beide Boxen
+        JPanel rightBoxColumn = new JPanel();
+        rightBoxColumn.setOpaque(false);
+        rightBoxColumn.setLayout(new BoxLayout(rightBoxColumn, BoxLayout.Y_AXIS));
+        rightBoxColumn.add(rightBoxup);
+        rightBoxColumn.add(rightBoxdown);
+        
+        // Füge die vertikale Box an die gewünschte Stelle ein:
+        topBar.add(rightBoxColumn, BorderLayout.WEST);
+        
+        // Entferne die bisherigen Zeilen:
+        // topBar.add(rightBoxup, BorderLayout.WEST);
+        // topBar.add(rightBoxdown, BorderLayout.NORTH);.NORTH);
 
         // Mitte: 3 runde Buttons (ecke /pencil / scale)
         JPanel centerRound = new JPanel();
         centerRound.setOpaque(false);
         centerRound.setLayout(new FlowLayout(FlowLayout.CENTER, 18, 0));
 
-        btnModes = new Roundheadbutton("icons/ecke.svg", 25);
-        btnColor = new Roundheadbutton("icons/pencil.svg", 25);
-        btnText  = new Roundheadbutton("icons/scale.svg", 24);
+        btnModes = new Roundheadbutton("icons/ecke.svg", 28);
+        btnColor = new Roundheadbutton("icons/pencil.svg", 28);
+        btnText  = new Roundheadbutton("icons/scale.svg", 28);
 
         centerRound.add(btnModes);
         centerRound.add(btnColor);
@@ -449,16 +478,29 @@ public void loadImage(File file) {
 
         // Button-Logik → Overlay direkt unter dem jeweiligen Button
         btnModes.addActionListener(e -> toggleDropdownOverlay(modePanel, btnModes, 180, 140));
-        btnColor.addActionListener(e -> toggleDropdownOverlay(colorPanel, btnColor, 320,100));
+        btnColor.addActionListener(e -> toggleDropdownOverlay(colorPanel, btnColor, 320,110));
         btnText.addActionListener(e -> toggleDropdownOverlay(textPanel,  btnText,  360, 240));
 
         // ===== Canvas als Center =====
         JScrollPane scroller = new JScrollPane(cv);
-        add(scroller, BorderLayout.CENTER);
+        //add(scroller, BorderLayout.CENTER);
+
+        JLayeredPane layeredPane = new JLayeredPane();
+        setContentPane(layeredPane);
+
+        scroller.setBounds(0, 0, getWidth(), getHeight());
+        layeredPane.add(scroller, JLayeredPane.DEFAULT_LAYER);
+
+        topStack.setOpaque(false);
+        topStack.setBackground(new Color(255,255,255,0));
+        topStack.setBounds(0, 0, getWidth(), 80); // Höhe ggf. anpassen
+        layeredPane.add(topStack, JLayeredPane.PALETTE_LAYER);
 
         // Bei Resize Popup neu positionieren
         addComponentListener(new ComponentAdapter() {
             @Override public void componentResized(ComponentEvent e) {
+                scroller.setBounds(0, 0, getWidth(), getHeight());
+                topStack.setBounds(0, 0, getWidth(), 80); // gleiche Höhe wie oben
                 reanchorVisibleDropdowns();
             }
         });
@@ -538,9 +580,9 @@ public void loadImage(File file) {
             Shape circle = new Ellipse2D.Double(2,2,w-4,h-4);
 
             paintSoftShadow(g2, circle, 3, 0.20f);
-            g2.setColor(new Color(255,255,255,220));
+            g2.setColor(new Color(240,240,255,240));
             g2.fill(circle);
-
+            // 4 no shadow -> clear color
             if (hover) {
                 g2.setStroke(new BasicStroke(2f));
                 g2.setColor(new Color(60,120,255,200));
@@ -585,7 +627,7 @@ public void loadImage(File file) {
             int w = getWidth(), h = getHeight();
             Shape circle = new Ellipse2D.Double(2,2,w-4,h-4);
 
-            paintSoftShadow(g2, circle, 6, 0.22f);
+            paintSoftShadow(g2, circle, 3, 0.22f);
             g2.setColor(baseColor);
             g2.fill(circle);
 
@@ -663,14 +705,14 @@ public void loadImage(File file) {
             int trackY = h/2 - trackH/2;
 
             RoundRectangle2D track = new RoundRectangle2D.Double(left, trackY, right-left, trackH, trackH, trackH);
-            g2.setColor(new Color(90,90,95,180));
+            g2.setColor(new Color(240,240,240,200));
             g2.fill(track);
 
             double range = getMaximum() - getMinimum();
             double pos = (getValue() - getMinimum()) / (range <= 0 ? 1.0 : range);
             int filledW = left + (int)((right-left) * pos);
             RoundRectangle2D filled = new RoundRectangle2D.Double(left, trackY, Math.max(2, filledW-left), trackH, trackH, trackH);
-            g2.setColor(new Color(60,120,255,200));
+            g2.setColor(new Color(54,60,255,180));
             g2.fill(filled);
 
             int thumbX = filledW;
@@ -853,19 +895,19 @@ public void loadImage(File file) {
         gc.insets = new Insets(6,6,6,6);
         gc.gridx=0; gc.gridy=0; gc.anchor = GridBagConstraints.WEST;
 
-        JLabel lsz = new JLabel("Größe");
-        lsz.setForeground(Color.WHITE);
-        SpinnerNumberModel fsizeModel = new SpinnerNumberModel(cv.fontSize, 6, 400, 1);
+        JLabel lsz = new JLabel("Size");
+        lsz.setForeground(Color.BLACK);
+        SpinnerNumberModel fsizeModel = new SpinnerNumberModel(cv.fontSize, 6, 400, 4);
         JSpinner fsizeSpin = new JSpinner(fsizeModel);
 
         JLabel lth = new JLabel("Hue");
-        lth.setForeground(Color.WHITE);
-        ShadowSlider sh = new ShadowSlider(0,360, 0);
+        lth.setForeground(Color.BLACK);
+        ShadowSlider sh = new ShadowSlider(0,360, 100);
         JLabel lts = new JLabel("Sat");
-        lts.setForeground(Color.WHITE);
+        lts.setForeground(Color.BLACK);
         ShadowSlider ss = new ShadowSlider(0,100, 100);
         JLabel ltb = new JLabel("Bri");
-        ltb.setForeground(Color.WHITE);
+        ltb.setForeground(Color.BLACK);
         ShadowSlider sb = new ShadowSlider(0,100, 100);
         JPanel preview = new JPanel(); preview.setPreferredSize(new Dimension(36, 24));
         preview.setBorder(BorderFactory.createLineBorder(new Color(120,120,120)));
@@ -882,8 +924,8 @@ public void loadImage(File file) {
 
         gc.gridx=0; gc.gridy++; gc.gridwidth=2; gc.weightx=0; gc.fill=GridBagConstraints.NONE;
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6,0)); row.setOpaque(false);
-        JLabel pvLbl = new JLabel("Vorschau:");
-        pvLbl.setForeground(Color.WHITE);
+        JLabel pvLbl = new JLabel("Preview:");
+        pvLbl.setForeground(Color.BLACK);
         row.add(pvLbl); row.add(preview);
         p.add(row, gc);
 
@@ -920,12 +962,12 @@ public void loadImage(File file) {
     private void saveProjectToFile() {
         JFileChooser fc = new JFileChooser();
         fc.setDialogTitle("Save project");
-        fc.setSelectedFile(new File("project.cvs"));
+        fc.setSelectedFile(new File("mycanvas.cvs"));
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = fc.getSelectedFile();
             if (!file.getName().toLowerCase().endsWith(".cvs")) file = new File(file.getParentFile(), file.getName() + ".cvs");
             saveProjectSilent(file);
-            JOptionPane.showMessageDialog(this, "Projekt gespeichert:\n" + file.getAbsolutePath());
+            JOptionPane.showMessageDialog(this, "Projekt Saved:\n" + file.getAbsolutePath());
         }
     }
 
@@ -964,13 +1006,13 @@ public void loadImage(File file) {
                     cv.fontFamily = pd.fontFamily;
                     cv.fontStyle = pd.fontStyle;
                     cv.repaint();
-                    JOptionPane.showMessageDialog(this, "Projekt geladen:\n" + file.getAbsolutePath());
+                    JOptionPane.showMessageDialog(this, "Project loaded:\n" + file.getAbsolutePath());
                 } else {
-                    JOptionPane.showMessageDialog(this, "Ungültige Datei.", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "File not found.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
-                JOptionPane.showMessageDialog(this, "Fehler beim Laden: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
