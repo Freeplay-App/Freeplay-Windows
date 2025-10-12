@@ -117,6 +117,7 @@ public class canvasex extends JFrame {
         }
     }
 
+    // =================== CANVAS VIEW ===================
     static class CanvasView extends JComponent {
         // Daten
         List<DrawingShape> shapes = new ArrayList<>();
@@ -149,13 +150,17 @@ public class canvasex extends JFrame {
         Point textStartWorld = null;
         StringBuilder textBuffer = new StringBuilder();
 
+        // NEU: Auswahl und Drag für Shapes/Text
+        DrawingShape selectedShape = null;
+        Point dragOffset = null;
+
         CanvasView() {
             setOpaque(true);
             setBackground(Color.WHITE);
             setFocusable(true);
 
             addMouseWheelListener(this::onWheel);
-            
+
             addMouseListener(new MouseAdapter() {
                 @Override public void mousePressed(MouseEvent e) {
                     requestFocusInWindow();
@@ -165,13 +170,53 @@ public class canvasex extends JFrame {
                         return;
                     }
                     Point w = toWorld(e.getPoint());
-                    if (mode == Mode.TEXT) {
+
+                    // === Text-Tippen: Klick außerhalb = übernehmen ===
+                    if (typing) {
+                        Rectangle textBounds = getTextBounds(textStartWorld, textBuffer.toString());
+                        if (textBounds == null || !textBounds.contains(w)) {
+                            drawText(textBuffer.toString(), textStartWorld);
+                            typing = false;
+                            textStartWorld = null;
+                            textBuffer.setLength(0);
+                            repaint();
+                            // Weiter: evtl. Auswahl prüfen
+                        } else {
+                            // Klick im Textfeld: weiter tippen
+                            return;
+                        }
+                    }
+
+                    // === Auswahl prüfen ===
+                    selectedShape = null;
+                    for (int i = shapes.size() - 1; i >= 0; i--) {
+                        DrawingShape s = shapes.get(i);
+                        if (shapeContains(s, w)) {
+                            selectedShape = s;
+                            if (s instanceof LineShape l) {
+                                dragOffset = new Point(w.x - l.a.x, w.y - l.a.y);
+                            } else if (s instanceof RectShape r) {
+                                dragOffset = new Point(w.x - r.a.x, w.y - r.a.y);
+                            } else if (s instanceof OvalShape o) {
+                                dragOffset = new Point(w.x - o.a.x, w.y - o.a.y);
+                            } else if (s instanceof TextShape t) {
+                                dragOffset = new Point(w.x - t.pos.x, w.y - t.pos.y);
+                            }
+                            repaint();
+                            return;
+                        }
+                    }
+
+                    // === Wenn keine Auswahl und Textmodus: neues Textfeld ===
+                    if (selectedShape == null && mode == Mode.TEXT && !typing) {
                         typing = true;
-                        textBuffer.setLength(0);
                         textStartWorld = w;
+                        textBuffer.setLength(0);
                         repaint();
                         return;
                     }
+
+                    // === Zeichnen vorbereiten ===
                     dragStartWorld = w;
                     lastWorld = w;
                 }
@@ -179,6 +224,10 @@ public class canvasex extends JFrame {
                 @Override public void mouseReleased(MouseEvent e) {
                     if (SwingUtilities.isRightMouseButton(e)) {
                         panning = false; setCursor(Cursor.getDefaultCursor());
+                        return;
+                    }
+                    if (selectedShape != null) {
+                        dragOffset = null;
                         return;
                     }
                     if (dragStartWorld == null) return;
@@ -200,6 +249,31 @@ public class canvasex extends JFrame {
                         return;
                     }
                     Point w = toWorld(e.getPoint());
+                    // === Drag für Auswahl ===
+                    if (selectedShape != null && dragOffset != null) {
+                        if (selectedShape instanceof LineShape l) {
+                            int dx = w.x - dragOffset.x - l.a.x;
+                            int dy = w.y - dragOffset.y - l.a.y;
+                            l.a.translate(dx, dy);
+                            l.b.translate(dx, dy);
+                        } else if (selectedShape instanceof RectShape r) {
+                            int dx = w.x - dragOffset.x - r.a.x;
+                            int dy = w.y - dragOffset.y - r.a.y;
+                            r.a.translate(dx, dy);
+                            r.b.translate(dx, dy);
+                        } else if (selectedShape instanceof OvalShape o) {
+                            int dx = w.x - dragOffset.x - o.a.x;
+                            int dy = w.y - dragOffset.y - o.a.y;
+                            o.a.translate(dx, dy);
+                            o.b.translate(dx, dy);
+                        } else if (selectedShape instanceof TextShape t) {
+                            t.pos.x = w.x - dragOffset.x;
+                            t.pos.y = w.y - dragOffset.y;
+                        }
+                        repaint();
+                        return;
+                    }
+                    // === Zeichnen Vorschau ===
                     if (mode == Mode.PEN && lastWorld != null) {
                         shapes.add(new LineShape(lastWorld, w, color, penSize));
                         lastWorld = w;
@@ -226,6 +300,14 @@ public class canvasex extends JFrame {
                         repaint();
                     } else {
                         textBuffer.append(c);
+                        repaint();
+                    }
+                }
+                @Override public void keyPressed(KeyEvent e) {
+                    // === Entf löscht Auswahl ===
+                    if (e.getKeyCode() == KeyEvent.VK_DELETE && selectedShape != null) {
+                        shapes.remove(selectedShape);
+                        selectedShape = null;
                         repaint();
                     }
                 }
@@ -260,26 +342,26 @@ public class canvasex extends JFrame {
             repaint();
         }
         public void saveImage(File file) {
-    BufferedImage image = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
-    Graphics2D g2 = image.createGraphics();
-    paint(g2);
-    g2.dispose();
-    try {
-        ImageIO.write(image, "png", file);
-    } catch (IOException e) {
-        e.printStackTrace();
-    }
-}
+            BufferedImage image = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = image.createGraphics();
+            paint(g2);
+            g2.dispose();
+            try {
+                ImageIO.write(image, "png", file);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
-public void loadImage(File file) {
-    try {
-        BufferedImage image = ImageIO.read(file);
-        Graphics g = getGraphics();
-        g.drawImage(image, 0, 0, this);
-    } catch (IOException e) {
-        e.printStackTrace();
-    }
-}
+        public void loadImage(File file) {
+            try {
+                BufferedImage image = ImageIO.read(file);
+                Graphics g = getGraphics();
+                g.drawImage(image, 0, 0, this);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
         // Zeichnen / Commit
         void commitShape(Point a, Point b) {
@@ -294,6 +376,7 @@ public void loadImage(File file) {
             Font f = new Font(fontFamily, fontStyle, fontSize);
             shapes.add(new TextShape(text, pos, textColor, f));
         }
+
         @Override protected void paintComponent(Graphics g) {
             if (isOpaque()) {
                 g.setColor(getBackground());
@@ -307,6 +390,24 @@ public void loadImage(File file) {
 
             // gespeicherte Shapes
             for (DrawingShape s : shapes) s.draw(g2);
+
+            // === Auswahlrahmen ===
+            if (selectedShape != null) {
+                g2.setColor(new Color(60,120,255,120));
+                g2.setStroke(new BasicStroke(2f));
+                if (selectedShape instanceof LineShape l) {
+                    g2.drawLine(l.a.x, l.a.y, l.b.x, l.b.y);
+                } else if (selectedShape instanceof RectShape r) {
+                    g2.drawRect(Math.min(r.a.x, r.b.x), Math.min(r.a.y, r.b.y),
+                        Math.abs(r.a.x - r.b.x), Math.abs(r.a.y - r.b.y));
+                } else if (selectedShape instanceof OvalShape o) {
+                    g2.drawOval(Math.min(o.a.x, o.b.x), Math.min(o.a.y, o.b.y),
+                        Math.abs(o.a.x - o.b.x), Math.abs(o.a.y - o.b.y));
+                } else if (selectedShape instanceof TextShape t) {
+                    Rectangle bounds = getTextBounds(t.pos, t.text);
+                    if (bounds != null) g2.drawRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                }
+            }
 
             // Vorschau
             if (dragStartWorld != null && dragNowWorld != null && mode != Mode.PEN && mode != Mode.TEXT) {
@@ -330,6 +431,42 @@ public void loadImage(File file) {
                 g2.drawString(preview, textStartWorld.x, textStartWorld.y);
             }
             g2.dispose();
+        }
+
+        // === Hilfsmethoden für Auswahl und Textfeld ===
+        private boolean shapeContains(DrawingShape s, Point p) {
+            if (s instanceof LineShape l) {
+                double dist = ptSegDist(l.a.x, l.a.y, l.b.x, l.b.y, p.x, p.y);
+                return dist < Math.max(8, l.size + 6);
+            } else if (s instanceof RectShape r) {
+                Rectangle rect = new Rectangle(Math.min(r.a.x, r.b.x), Math.min(r.a.y, r.b.y),
+                        Math.abs(r.a.x - r.b.x), Math.abs(r.a.y - r.b.y));
+                return rect.contains(p);
+            } else if (s instanceof OvalShape o) {
+                Ellipse2D oval = new Ellipse2D.Double(Math.min(o.a.x, o.b.x), Math.min(o.a.y, o.b.y),
+                        Math.abs(o.a.x - o.b.x), Math.abs(o.a.y - o.b.y));
+                return oval.contains(p);
+            } else if (s instanceof TextShape t) {
+                Rectangle bounds = getTextBounds(t.pos, t.text);
+                return bounds != null && bounds.contains(p);
+            }
+            return false;
+        }
+        private double ptSegDist(int x1, int y1, int x2, int y2, int px, int py) {
+            double dx = x2 - x1, dy = y2 - y1;
+            double len2 = dx*dx + dy*dy;
+            if (len2 == 0) return Point.distance(x1, y1, px, py);
+            double t = ((px-x1)*dx + (py-y1)*dy) / len2;
+            t = Math.max(0, Math.min(1, t));
+            double nx = x1 + t*dx, ny = y1 + t*dy;
+            return Point.distance(nx, ny, px, py);
+        }
+        private Rectangle getTextBounds(Point pos, String text) {
+            if (pos == null || text == null) return null;
+            FontMetrics fm = getFontMetrics(new Font(fontFamily, fontStyle, fontSize));
+            int w = fm.stringWidth(text);
+            int h = fm.getHeight();
+            return new Rectangle(pos.x, pos.y - h, w, h);
         }
     }
 
@@ -419,7 +556,7 @@ public void loadImage(File file) {
         
         topBar.add(leftBox, BorderLayout.EAST);
         topBar.add(rightBoxup, BorderLayout.WEST);
-        topBar.add(rightBoxdown);         // ...nach der Erstellung von rightBoxup und rightBoxdown...
+        topBar.add(rightBoxdown, BorderLayout.SOUTH); // ...nach der Erstellung von rightBoxup und rightBoxdown...
         
         // Vertikaler Container für beide Boxen
         JPanel rightBoxColumn = new JPanel();
