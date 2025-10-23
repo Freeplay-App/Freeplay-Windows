@@ -16,7 +16,6 @@ Freeplay is a modern paint app with an infinite canvas. You can draw, design, an
 
 
 ## Export your creations
-<img width="512" height="512" alt="icon" src="https://github.com/user-attachments/assets/0636b375-7e53-4334-be7e-36ac440ffe5a" />
 ## Available for Windows
 
 - Coming Soon
@@ -30,6 +29,8 @@ Drop images directly onto the canvas
 Refined modern design
 
 AI-powered creative features
+
+<img width="512" height="512" alt="icon" src="https://github.com/user-attachments/assets/0636b375-7e53-4334-be7e-36ac440ffe5a" />
 
 Project Information
 
