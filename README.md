@@ -3,7 +3,7 @@
 ## Freeplay — A Paint App with Infinite Possibilities
 
 Freeplay is a modern paint app with an infinite canvas. You can draw, design, and create anything you can imagine — without limits or boundaries.
-
+<img width="952" height="476" alt="freeeplaytest" src="https://github.com/user-attachments/assets/ee956a91-b167-4629-85e5-81474fbf6a8e" />
 ## Features
 
 - Draw in different colors and thicknesses
@@ -16,22 +16,19 @@ Freeplay is a modern paint app with an infinite canvas. You can draw, design, an
 
 
 ## Export your creations
+<img width="958" height="503" alt="freeplysave2" src="https://github.com/user-attachments/assets/2a13606a-6158-4a20-9c30-00ffa3b150d6" />
+
 ## Available for Windows
 
-- Coming Soon
-
+## Coming Soon
+- AI Based Support for Shapes and Coloring
 - Improved performance and smoother drawing
+- New Brushes and Colors
 
-Color customization for shapes and text
-
-Drop images directly onto the canvas
-
-Refined modern design
-
-AI-powered creative features
 
 <img width="512" height="512" alt="icon" src="https://github.com/user-attachments/assets/0636b375-7e53-4334-be7e-36ac440ffe5a" />
 
 Project Information
 
-- I nearly got depressive doing this Application 
+- I nearly got depressive doing this Application
+- Small side Project for fun 
