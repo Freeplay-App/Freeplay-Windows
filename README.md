@@ -34,6 +34,4 @@ AI-powered creative features
 
 Project Information
 
-Development started on August 21, 2025, and is still ongoing.
-Approximately 26 sticky notes and 30+ hours went into building this project.
-Built with creativity and passion — I hope you enjoy using Freeplay as much as I enjoyed making it.
+- I nearly got depressive doing this Application 
