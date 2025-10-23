@@ -1265,7 +1265,7 @@ static class CanvasView extends JComponent {
 
             // shadow and background like round buttons but pill-shaped
             paintSoftShadow(g2, pill, 2, 0.05f);
-            g2.setColor(new Color(255,255,255,255));
+            g2.setColor(new Color(240,240,255,255));//first 4 test
             g2.fill(pill);
 
             if (hover) {
@@ -1319,7 +1319,7 @@ static class CanvasView extends JComponent {
             int w = getWidth(), h = getHeight();
             Shape circle = new Ellipse2D.Double(2,2,w-4,h-4);
 
-            paintSoftShadow(g2, circle, 3, 0.05f);
+            paintSoftShadow(g2, circle, 2, 0.05f);
             g2.setColor(baseColor);
             g2.fill(circle);
 
@@ -1480,8 +1480,8 @@ static class CanvasView extends JComponent {
 
             Shape rr = new RoundRectangle2D.Double(6, 6, Math.max(getWidth()-12,0), Math.max(getHeight()-12,0), arc, arc);
 
-            paintSoftShadow(g2, rr, 3, 0.05f);
-            g2.setColor(new Color(255,255,255, 255));
+            paintSoftShadow(g2, rr, 2, 0.05f);
+            g2.setColor(new Color(255,255,255,255));
             g2.fill(rr);
 
             g2.setColor(new Color(255,255,255,10));
@@ -1531,7 +1531,7 @@ static class CanvasView extends JComponent {
             int thumbY = h / 2;
             Ellipse2D thumb = new Ellipse2D.Double(thumbX - 10, thumbY - 10, 20, 20);
 
-            paintSoftShadow(g2, thumb, 3, 0.05f);
+            paintSoftShadow(g2, thumb, 2, 0.04f);
             g2.setColor(Color.WHITE);
             g2.fill(thumb);
             g2.setColor(new Color(0,150,150,200));
